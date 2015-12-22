@@ -1,0 +1,8 @@
+[aws_auth]
+aws_secret_access_key = fill_in
+aws_access_key_id = fill_in
+
+[stats]
+stats_url = http://192.168.1.254/cgi-bin/dslstatistics.ha
+last_read_path = /home/tim/.cwrouter
+
