@@ -7,27 +7,25 @@ from cwrouter.exceptions import EmptyStatsException
 
 @total_ordering
 class Stats(dict):
-    def __init__(self, document=None, recv_bytes=None, sent_bytes=None):
+    def __init__(self, recv_bytes=None, sent_bytes=None):
         super(Stats, self).__init__()
-        self._document = document
         self['recv_bytes'] = self['sent_bytes'] = None
-        if document:
-            self._parse_document()
 
         if recv_bytes != None:
             self['recv_bytes'] = recv_bytes
         if sent_bytes != None:
             self['sent_bytes'] = sent_bytes
+        if sent_bytes != None and recv_bytes != None:
+            self['total_bytes'] = sent_bytes + recv_bytes
 
     @classmethod
     def from_request(cls, stats_url):
         resp = requests.get(stats_url)
-        if resp.status_code == requests.codes.ok:
-            return cls(resp.text)
-        resp.raise_for_status()
+        if resp.status_code != requests.codes.ok:
+            resp.raise_for_status()
 
-    def _parse_document(self):
-        soup = bs(self._document, "html.parser")
+        document = resp.text
+        soup = bs(document, "html.parser")
         for table in soup.find_all("table"):
             if table['summary'] == "Ethernet IPv4 Statistics Table":
                 rows = {key: value
@@ -35,9 +33,8 @@ class Stats(dict):
                         in ([tr.find("th").string, tr.find("td").string]
                             for tr
                             in table.find_all("tr"))}
-                self['recv_bytes'] = int(rows['Receive Bytes'])
-                self['sent_bytes'] = int(rows['Transmit Bytes'])
-                break
+                return cls(int(rows['Receive Bytes']), int(rows['Transmit Bytes']))
+        raise EmptyStatsException("Could not build stats object from document")
 
     @property
     def recv_bytes(self):
@@ -47,8 +44,13 @@ class Stats(dict):
     def sent_bytes(self):
         return self['sent_bytes']
 
+    @property
+    def total_bytes(self):
+        return self['total_bytes']
+
     def is_empty(self):
-        return self['recv_bytes'] == None or self['sent_bytes'] == None
+        return self.recv_bytes == None or self.sent_bytes == None \
+                or self.total_bytes == None
 
     def metrics(self):
         return self.items()
@@ -66,23 +68,19 @@ class Stats(dict):
     @classmethod
     def last_read(cls, config):
         try:
-            return cls(None, recv_bytes=config.get('recv_bytes'),
-                         sent_bytes=config.get('sent_bytes'))
+            return cls(recv_bytes=config.get('recv_bytes'),
+                       sent_bytes=config.get('sent_bytes'))
         except ValueError:
-            return None
+            return EmptyStatsException("Couldn't build stats object from last read in config")
 
     @classmethod
     def delta(cls, first, second):
         if first and second:
-            if not first.is_empty() and not second.is_empty():
-                return cls._calc_delta(first, second)
-            else:
-                raise EmptyStatsException
+            if first.is_empty() or second.is_empty():
+                raise EmptyStatsException("A delta point is empty")
         else:
-            raise ValueError("unable to calculate delta")
+            raise EmptyStatsException("A delta point is None")
 
-    @classmethod
-    def _calc_delta(cls, first, second):
         if first < second:
             return cls(recv_bytes=second.recv_bytes - first.recv_bytes,
                        sent_bytes=second.sent_bytes - first.sent_bytes)
