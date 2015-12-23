@@ -9,3 +9,6 @@ class PutException(CWRouterException):
 
 class StatsLookupException(CWRouterException):
     pass
+
+class DocumentParseException(CWRouterException):
+    pass

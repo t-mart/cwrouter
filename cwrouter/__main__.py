@@ -1,14 +1,13 @@
 import sys
-import cwrouter
 import logging
 from logging.handlers import RotatingFileHandler
+from logging import StreamHandler
 import os.path
-import requests
 
 from cwrouter.config import Config, DEFAULT_CONFIG_DIR, ensure_config_dir_exists
 from cwrouter.stats import Stats
-from cwrouter.put import put
-from cwrouter.exceptions import PutException, StatsLookupException
+from cwrouter.put import PutMetrics
+from cwrouter.exceptions import PutException, StatsLookupException, DocumentParseException
 
 class ExitStatus:
     OK = 0
@@ -16,15 +15,21 @@ class ExitStatus:
     NO_CONFIG = 2
 
 def setup_logger():
-    ensure_config_dir_exists(DEFAULT_CONFIG_DIR)
+    ensure_config_dir_exists()
     logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler = RotatingFileHandler(os.path.join(DEFAULT_CONFIG_DIR, "cwrouter.log"),
-                                      maxBytes=10*(2**10),  # 10 MB
+
+    rfhandler = RotatingFileHandler(os.path.join(DEFAULT_CONFIG_DIR, "cwrouter.log"),
+                                      maxBytes=10*(2**20),  # 10 MB
                                       backupCount=1)        # keep 1 extra file
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    rfhandler.setFormatter(formatter)
+    rfhandler.setLevel(logging.INFO)
+    logger.addHandler(rfhandler)
+
+    shandler = StreamHandler(sys.stderr)
+    shandler.setFormatter(formatter)
+    shandler.setLevel(logging.INFO)
+    logger.addHandler(shandler)
     return logger
 
 def main():
@@ -42,19 +47,23 @@ def main():
 
     try:
         new_stats = Stats.from_request(stats_url=stat_url)
-    except StatsLookupException:
-        logger.exception() #raises the exception
+    except StatsLookupException as e:
+        logger.error(e)
+        return ExitStatus.ERROR
+    except DocumentParseException as e:
+        logger.error(e)
         return ExitStatus.ERROR
 
     if last_stats.is_empty():
-        delta = Stats(None, recv_bytes=0, sent_bytes=0)
+        delta = Stats(recv_bytes=0, sent_bytes=0)
     else:
         delta = Stats.delta(last_stats, new_stats)
 
     try:
-        put(delta, config)
-    except PutException:
-        logger.exception() #raises the exception
+        pm = PutMetrics.build_from_creds(config['aws_access_key_id'], config['aws_secret_access_key'])
+        pm.put(config['namespace'], delta)
+    except PutException as e:
+        logger.error(e)
         return ExitStatus.ERROR
     logger.info("put metric %s" % str(delta))
 

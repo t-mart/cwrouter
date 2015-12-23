@@ -14,9 +14,9 @@ DEFAULT_CONFIG_DIR = os.environ.get(
     os.path.expandvars(r'%APPDATA%\\cwrouter')
 )
 
-def ensure_config_dir_exists(dir_path):
+def ensure_config_dir_exists():
     try:
-        os.makedirs(dir_path, mode=0o700)
+        os.makedirs(DEFAULT_CONFIG_DIR, mode=0o700)
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
@@ -33,7 +33,7 @@ class BaseConfigDict(dict):
     @property
     def path(self):
         """Return the config file path creating basedir, if needed."""
-        ensure_config_dir_exists(os.path.dirname(self._path))
+        ensure_config_dir_exists()
         return self._path
 
     def is_new(self):

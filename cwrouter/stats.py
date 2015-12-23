@@ -3,7 +3,8 @@ from functools import total_ordering
 from bs4 import BeautifulSoup as bs
 import requests
 
-from cwrouter.exceptions import EmptyStatsException
+from cwrouter.exceptions import EmptyStatsException, DocumentParseException, StatsLookupException
+
 
 @total_ordering
 class Stats(dict):
@@ -20,11 +21,18 @@ class Stats(dict):
 
     @classmethod
     def from_request(cls, stats_url):
-        resp = requests.get(stats_url)
-        if resp.status_code != requests.codes.ok:
-            resp.raise_for_status()
+        try:
+            resp = requests.get(stats_url)
+        except requests.exceptions.ConnectionError:
+            raise StatsLookupException("unable to make the request to %s" % stats_url)
 
-        document = resp.text
+        if resp.status_code != requests.codes.ok:
+            raise StatsLookupException("response code of %d from %s" % (resp.status_code, stats_url))
+
+        return cls.from_document(resp.text)
+
+    @classmethod
+    def from_document(cls, document):
         soup = bs(document, "html.parser")
         for table in soup.find_all("table"):
             if table['summary'] == "Ethernet IPv4 Statistics Table":
@@ -33,8 +41,11 @@ class Stats(dict):
                         in ([tr.find("th").string, tr.find("td").string]
                             for tr
                             in table.find_all("tr"))}
-                return cls(int(rows['Receive Bytes']), int(rows['Transmit Bytes']))
-        raise EmptyStatsException("Could not build stats object from document")
+                try:
+                    return cls(int(rows['Receive Bytes']), int(rows['Transmit Bytes']))
+                except KeyError:
+                    DocumentParseException("could not build stats object from document")
+        raise DocumentParseException("could not build stats object from document")
 
     @property
     def recv_bytes(self):
