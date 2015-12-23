@@ -3,36 +3,25 @@ from functools import total_ordering
 from bs4 import BeautifulSoup as bs
 import requests
 
+from cwrouter.exceptions import EmptyStatsException
+
 @total_ordering
-class Stats:
-    def __init__(self, document=None, *args, recv_bytes=None,
-                 recv_packets=None, trans_bytes=None, trans_packets=None,
-                 **kwargs):
+class Stats(dict):
+    def __init__(self, document=None, recv_bytes=None, trans_bytes=None):
+        super(Stats, self).__init__()
         self._document = document
-        self.recv_bytes = self.recv_packets = self.trans_bytes = self.trans_packets = None
+        self['recv_bytes'] = self['trans_bytes'] = None
         if document:
             self._parse_document()
 
         if recv_bytes != None:
-            self.recv_bytes = recv_bytes
-        if recv_packets != None:
-            self.recv_packets = recv_packets
+            self['recv_bytes'] = recv_bytes
         if trans_bytes != None:
-            self.trans_bytes = trans_bytes
-        if trans_packets != None:
-            self.trans_packets = trans_packets
-
-        f=(self.recv_bytes, self.recv_packets,
-                                           self.trans_bytes, self.trans_packets)
-
-        if not all(i != None for i in (self.recv_bytes, self.recv_packets,
-                                           self.trans_bytes, self.trans_packets)):
-            raise ValueError("incomplete Stats object, must have all "
-                             "attributes.")
+            self['trans_bytes'] = trans_bytes
 
     @classmethod
-    def from_request(cls, config):
-        resp = requests.get(config["stats_resources"]["stats_url"])
+    def from_request(cls, stats_url):
+        resp = requests.get(stats_url)
         if resp.status_code == requests.codes.ok:
             return cls(resp.text)
         resp.raise_for_status()
@@ -46,36 +35,57 @@ class Stats:
                         in ([tr.find("th").string, tr.find("td").string]
                             for tr
                             in table.find_all("tr"))}
-                self.recv_packets = int(rows['Receive Packets'])
-                self.recv_bytes = int(rows['Receive Bytes'])
-                self.trans_packets = int(rows['Transmit Packets'])
-                self.trans_bytes = int(rows['Transmit Bytes'])
+                self['recv_bytes'] = int(rows['Receive Bytes'])
+                self['trans_bytes'] = int(rows['Transmit Bytes'])
                 break
 
+    @property
+    def recv_bytes(self):
+        return self['recv_bytes']
+
+    @property
+    def trans_bytes(self):
+        return self['trans_bytes']
+
+    def is_empty(self):
+        return self['recv_bytes'] == None or self['trans_bytes'] == None
+
+    def metrics(self):
+        return self.items()
+
     def __eq__(self, other):
-        return all((self.recv_bytes == other.recv_bytes,
-                    self.recv_packets == other.recv_packets,
-                    self.trans_packets == other.trans_packets,
-                    self.trans_bytes == other.trans_bytes))
+        return self['recv_bytes'] == other.recv_bytes and self['trans_bytes'] == other.trans_bytes
 
     def __lt__(self, other):
-        if self.recv_bytes < other.recv_bytes:
-            return True
-        if self.recv_packets < other.recv_packets:
-            return True
-        if self.trans_bytes < other.trans_bytes:
-            return True
-        if self.trans_packets < other.trans_packets:
-            return True
-        return False
+        if self['recv_bytes'] >= other.recv_bytes:
+            return False
+        if self['trans_bytes'] >= other.trans_bytes:
+            return False
+        return True
 
     @classmethod
     def last_read(cls, config):
         try:
-            return cls(None, recv_bytes=config.getint('stats','recv_bytes'),
-                         recv_packets=config.getint('stats','recv_packets'),
-                         trans_bytes=config.getint('stats','trans_bytes'),
-                         trans_packets=config.getint('stats','trans_packets'))
+            return cls(None, recv_bytes=config.get('recv_bytes'),
+                         trans_bytes=config.get('trans_bytes'))
         except ValueError:
             return None
 
+    @classmethod
+    def delta(cls, first, second):
+        if first and second:
+            if not first.is_empty() and not second.is_empty():
+                return cls._calc_delta(first, second)
+            else:
+                raise EmptyStatsException
+        else:
+            raise ValueError("unable to calculate delta")
+
+    @classmethod
+    def _calc_delta(cls, first, second):
+        if first < second:
+            return cls(recv_bytes=second.recv_bytes - first.recv_bytes,
+                       trans_bytes=second.trans_bytes - first.trans_bytes)
+        else:
+            return cls(recv_bytes=second.recv_bytes,
+                       trans_bytes=second.trans_bytes)
