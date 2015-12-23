@@ -47,7 +47,7 @@ def main():
         return ExitStatus.ERROR
 
     if last_stats.is_empty():
-        delta = Stats(None, recv_bytes=0, trans_bytes=0)
+        delta = Stats(None, recv_bytes=0, sent_bytes=0)
     else:
         delta = Stats.delta(last_stats, new_stats)
 
@@ -56,7 +56,7 @@ def main():
     except PutException:
         logger.exception() #raises the exception
         return ExitStatus.ERROR
-    logger.info("Sent %s" % str(delta))
+    logger.info("put metric %s" % str(delta))
 
     config.update_last_stats(new_stats)
     config.save()

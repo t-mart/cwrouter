@@ -11,21 +11,21 @@ FILE_A_PATH = path.join(FIXTURES_ROOT, 'a.html')
 with open(FILE_A_PATH) as f:
     FILE_A_CONTENT = f.read()
 
-stats_early = Stats(None, recv_bytes=3, trans_bytes=3)
+stats_early = Stats(None, recv_bytes=3, sent_bytes=3)
 
-stats_later = Stats(None, recv_bytes=10, trans_bytes=10)
+stats_later = Stats(None, recv_bytes=10, sent_bytes=10)
 
 
 class TestStats:
     def test_stats_parse(self):
         stats = Stats(FILE_A_CONTENT)
         assert stats.recv_bytes == 1740360955
-        assert stats.trans_bytes == 328481009
+        assert stats.sent_bytes == 328481009
 
     def test_stats_raw(self):
-        stats = Stats(FILE_A_CONTENT, recv_bytes=1, trans_bytes=3)
+        stats = Stats(FILE_A_CONTENT, recv_bytes=1, sent_bytes=3)
         assert stats.recv_bytes == 1
-        assert stats.trans_bytes == 3
+        assert stats.sent_bytes == 3
 
     def test_comparison(self):
         assert stats_early < stats_later
@@ -35,7 +35,7 @@ class TestStatsDelta:
     def test_stats_delta_sequenced(self):
         stats_delta = Stats.delta(stats_early, stats_later)
         assert stats_delta.recv_bytes == 7
-        assert stats_delta.trans_bytes == 7
+        assert stats_delta.sent_bytes == 7
 
     def test_stats_delta_after_stat_reset(self):
         """Sometimes the stats on the router page will reset to zero. This tests that if a newer stats object comes in
@@ -43,7 +43,7 @@ class TestStatsDelta:
         point of 0 instead."""
         stats_delta = Stats.delta(stats_later, stats_early)
         assert stats_delta.recv_bytes == 3
-        assert stats_delta.trans_bytes == 3
+        assert stats_delta.sent_bytes == 3
 
     def test_first_run_stats(self):
         config = Config()  # has empty last stats
@@ -53,10 +53,10 @@ class TestStatsDelta:
     def test_bad_stats(self):
         config = Config()
         config['last_stats']['recv_bytes'] = 1
-        config['last_stats']['trans_bytes'] = 1
+        config['last_stats']['sent_bytes'] = 1
         stats_delta = Stats.delta(config.last_stats(), stats_early)
         assert stats_delta.recv_bytes == 2
-        assert stats_delta.trans_bytes == 2
+        assert stats_delta.sent_bytes == 2
 
 
 class TestStatsPut:

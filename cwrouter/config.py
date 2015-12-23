@@ -74,12 +74,12 @@ class BaseConfigDict(dict):
                 raise
 
     def last_stats(self):
-        return Stats(None, self['last_stats']['recv_bytes'], self['last_stats']['trans_bytes'])
+        return Stats(None, self['last_stats']['recv_bytes'], self['last_stats']['sent_bytes'])
 
     def update_last_stats(self, stats):
         self['last_stats'].update({
             'recv_bytes': stats.recv_bytes,
-            'trans_bytes': stats.trans_bytes
+            'sent_bytes': stats.sent_bytes
         })
 
 
@@ -92,7 +92,7 @@ class Config(BaseConfigDict):
         'aws_secret_access_key': 'fill_in',
         'aws_access_key_id': 'fill_in',
         'stats_url': 'http://192.168.1.254/cgi-bin/dslstatistics.ha',
-        'last_stats': {'recv_bytes': None, 'trans_bytes': None},
+        'last_stats': {'recv_bytes': None, 'sent_bytes': None},
         'namespace': 'cwrouter',
     }
 

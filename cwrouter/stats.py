@@ -7,17 +7,17 @@ from cwrouter.exceptions import EmptyStatsException
 
 @total_ordering
 class Stats(dict):
-    def __init__(self, document=None, recv_bytes=None, trans_bytes=None):
+    def __init__(self, document=None, recv_bytes=None, sent_bytes=None):
         super(Stats, self).__init__()
         self._document = document
-        self['recv_bytes'] = self['trans_bytes'] = None
+        self['recv_bytes'] = self['sent_bytes'] = None
         if document:
             self._parse_document()
 
         if recv_bytes != None:
             self['recv_bytes'] = recv_bytes
-        if trans_bytes != None:
-            self['trans_bytes'] = trans_bytes
+        if sent_bytes != None:
+            self['sent_bytes'] = sent_bytes
 
     @classmethod
     def from_request(cls, stats_url):
@@ -36,7 +36,7 @@ class Stats(dict):
                             for tr
                             in table.find_all("tr"))}
                 self['recv_bytes'] = int(rows['Receive Bytes'])
-                self['trans_bytes'] = int(rows['Transmit Bytes'])
+                self['sent_bytes'] = int(rows['Transmit Bytes'])
                 break
 
     @property
@@ -44,22 +44,22 @@ class Stats(dict):
         return self['recv_bytes']
 
     @property
-    def trans_bytes(self):
-        return self['trans_bytes']
+    def sent_bytes(self):
+        return self['sent_bytes']
 
     def is_empty(self):
-        return self['recv_bytes'] == None or self['trans_bytes'] == None
+        return self['recv_bytes'] == None or self['sent_bytes'] == None
 
     def metrics(self):
         return self.items()
 
     def __eq__(self, other):
-        return self['recv_bytes'] == other.recv_bytes and self['trans_bytes'] == other.trans_bytes
+        return self['recv_bytes'] == other.recv_bytes and self['sent_bytes'] == other.sent_bytes
 
     def __lt__(self, other):
         if self['recv_bytes'] >= other.recv_bytes:
             return False
-        if self['trans_bytes'] >= other.trans_bytes:
+        if self['sent_bytes'] >= other.sent_bytes:
             return False
         return True
 
@@ -67,7 +67,7 @@ class Stats(dict):
     def last_read(cls, config):
         try:
             return cls(None, recv_bytes=config.get('recv_bytes'),
-                         trans_bytes=config.get('trans_bytes'))
+                         sent_bytes=config.get('sent_bytes'))
         except ValueError:
             return None
 
@@ -85,7 +85,7 @@ class Stats(dict):
     def _calc_delta(cls, first, second):
         if first < second:
             return cls(recv_bytes=second.recv_bytes - first.recv_bytes,
-                       trans_bytes=second.trans_bytes - first.trans_bytes)
+                       sent_bytes=second.sent_bytes - first.sent_bytes)
         else:
             return cls(recv_bytes=second.recv_bytes,
-                       trans_bytes=second.trans_bytes)
+                       sent_bytes=second.sent_bytes)
