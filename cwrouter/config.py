@@ -9,10 +9,11 @@ from cwrouter.stats import Stats
 is_windows = 'win32' in str(sys.platform).lower()
 
 DEFAULT_CONFIG_DIR = os.environ.get(
-    'CWROUTER_CONFIG',
-    os.path.expanduser('~/.cwrouter') if not is_windows else
-    os.path.expandvars(r'%APPDATA%\\cwrouter')
+        'CWROUTER_CONFIG',
+        os.path.expanduser('~/.cwrouter') if not is_windows else
+        os.path.expandvars(r'%APPDATA%\\cwrouter')
 )
+
 
 def ensure_config_dir_exists():
     try:
@@ -23,7 +24,6 @@ def ensure_config_dir_exists():
 
 
 class BaseConfigDict(dict):
-
     name = None
     about = None
 
@@ -46,8 +46,8 @@ class BaseConfigDict(dict):
                     data = json.load(f)
                 except ValueError as e:
                     raise ValueError(
-                        'Invalid %s JSON: %s [%s]' %
-                        (type(self).__name__, str(e), self.path)
+                            'Invalid %s JSON: %s [%s]' %
+                            (type(self).__name__, str(e), self.path)
                     )
                 self.update(data)
         except IOError as e:
@@ -85,7 +85,6 @@ class BaseConfigDict(dict):
 
 
 class Config(BaseConfigDict):
-
     about = 'cwrouter configuration file'
     name = 'config'
 

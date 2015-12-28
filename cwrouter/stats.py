@@ -1,7 +1,7 @@
 from functools import total_ordering
 
-from bs4 import BeautifulSoup as bs
 import requests
+from bs4 import BeautifulSoup
 
 from cwrouter.exceptions import EmptyStatsException, DocumentParseException, StatsLookupException
 
@@ -12,11 +12,11 @@ class Stats(dict):
         super(Stats, self).__init__()
         self['recv_bytes'] = self['sent_bytes'] = None
 
-        if recv_bytes != None:
+        if recv_bytes is not None:
             self['recv_bytes'] = recv_bytes
-        if sent_bytes != None:
+        if sent_bytes is not None:
             self['sent_bytes'] = sent_bytes
-        if sent_bytes != None and recv_bytes != None:
+        if sent_bytes is not None and recv_bytes is not None:
             self['total_bytes'] = sent_bytes + recv_bytes
 
     @classmethod
@@ -33,7 +33,7 @@ class Stats(dict):
 
     @classmethod
     def from_document(cls, document):
-        soup = bs(document, "html.parser")
+        soup = BeautifulSoup(document, "html.parser")
         for table in soup.find_all("table"):
             if table['summary'] == "Ethernet IPv4 Statistics Table":
                 rows = {key: value
@@ -60,8 +60,8 @@ class Stats(dict):
         return self['total_bytes']
 
     def is_empty(self):
-        return self.recv_bytes == None or self.sent_bytes == None \
-                or self.total_bytes == None
+        return self.recv_bytes is None or self.sent_bytes is None \
+                or self.total_bytes is None
 
     def metrics(self):
         return self.items()

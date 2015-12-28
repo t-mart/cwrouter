@@ -9,10 +9,12 @@ from cwrouter.stats import Stats
 from cwrouter.put import PutMetrics
 from cwrouter.exceptions import PutException, StatsLookupException, DocumentParseException
 
+
 class ExitStatus:
     OK = 0
     ERROR = 1
     NO_CONFIG = 2
+
 
 def setup_logger():
     ensure_config_dir_exists()
@@ -20,8 +22,8 @@ def setup_logger():
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
     rfhandler = RotatingFileHandler(os.path.join(DEFAULT_CONFIG_DIR, "cwrouter.log"),
-                                      maxBytes=10*(2**20),  # 10 MB
-                                      backupCount=1)        # keep 1 extra file
+                                    maxBytes=10 * (2 ** 20),  # 10 MB
+                                    backupCount=1)  # keep 1 extra file
     rfhandler.setFormatter(formatter)
     rfhandler.setLevel(logging.INFO)
     logger.addHandler(rfhandler)
@@ -32,12 +34,15 @@ def setup_logger():
     logger.addHandler(shandler)
     return logger
 
+
 def main():
     config = Config()
     logger = setup_logger()
 
     if config.is_new():
-        logger.error("cwrouter is stopping because you have no config! skeleton written to %s. fill in your credentials.", config.path)
+        logger.error(
+                "cwrouter is stopping because you have no config! skeleton written to %s. fill in your credentials.",
+                config.path)
         config.save()
         return ExitStatus.NO_CONFIG
 
@@ -70,6 +75,7 @@ def main():
     config.update_last_stats(new_stats)
     config.save()
     return ExitStatus.OK
+
 
 if __name__ == "__main__":
     sys.exit(main())

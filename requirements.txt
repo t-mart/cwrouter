@@ -1,4 +1,0 @@
-mock
-beautifulsoup4
-requests
-boto

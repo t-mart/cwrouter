@@ -1,7 +1,8 @@
 from boto import connect_cloudwatch
-from boto.exception import BotoClientError, BotoServerError
+from boto.exception import BotoServerError
 
 from cwrouter.exceptions import PutException
+
 
 class PutMetrics:
     def __init__(self, cloudwatch_connection):
