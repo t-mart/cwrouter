@@ -16,8 +16,6 @@ class Stats(dict):
             self['recv_bytes'] = recv_bytes
         if sent_bytes is not None:
             self['sent_bytes'] = sent_bytes
-        if sent_bytes is not None and recv_bytes is not None:
-            self['total_bytes'] = sent_bytes + recv_bytes
 
     @classmethod
     def from_request(cls, stats_url):
@@ -57,14 +55,13 @@ class Stats(dict):
 
     @property
     def total_bytes(self):
-        return self['total_bytes']
+        return self['recv_bytes'] + self['sent_bytes']
 
     def is_empty(self):
-        return self.recv_bytes is None or self.sent_bytes is None \
-                or self.total_bytes is None
+        return self.recv_bytes is None or self.sent_bytes is None
 
     def metrics(self):
-        return self.items()
+        return list(self.items()) + [('total_bytes', self.total_bytes)]
 
     def __eq__(self, other):
         return self['recv_bytes'] == other.recv_bytes and self['sent_bytes'] == other.sent_bytes
@@ -78,19 +75,13 @@ class Stats(dict):
 
     @classmethod
     def last_read(cls, config):
-        try:
             return cls(recv_bytes=config.get('recv_bytes'),
                        sent_bytes=config.get('sent_bytes'))
-        except ValueError:
-            return EmptyStatsException("Couldn't build stats object from last read in config")
 
     @classmethod
     def delta(cls, first, second):
-        if first and second:
-            if first.is_empty() or second.is_empty():
-                raise EmptyStatsException("A delta point is empty")
-        else:
-            raise EmptyStatsException("A delta point is None")
+        if first.is_empty() or second.is_empty():
+            raise EmptyStatsException("A delta point is empty")
 
         if first < second:
             return cls(recv_bytes=second.recv_bytes - first.recv_bytes,

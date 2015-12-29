@@ -19,13 +19,29 @@ def ensure_config_dir_exists():
     try:
         os.makedirs(DEFAULT_CONFIG_DIR, mode=0o700)
     except OSError as e:
-        if e.errno != errno.EEXIST:
+        if e.errno == errno.EEXIST:
+            assert os.path.isdir(DEFAULT_CONFIG_DIR)
+        else:
             raise
 
 
-class BaseConfigDict(dict):
-    name = None
-    about = None
+class Config(dict):
+    about = 'cwrouter configuration file'
+    name = 'config'
+
+    DEFAULTS = {
+        'aws_secret_access_key': 'fill_in',
+        'aws_access_key_id': 'fill_in',
+        'stats_url': 'http://192.168.1.254/cgi-bin/dslstatistics.ha',
+        'last_stats': {'recv_bytes': None, 'sent_bytes': None},
+        'namespace': 'cwrouter',
+    }
+
+    def __init__(self, directory=DEFAULT_CONFIG_DIR):
+        super(Config, self).__init__(self)
+        self.update(self.DEFAULTS)
+        self.directory = directory
+        self._path = os.path.join(directory, self.name + ".json")
 
     def __getattr__(self, item):
         return self[item]
@@ -79,25 +95,5 @@ class BaseConfigDict(dict):
     def update_last_stats(self, stats):
         self['last_stats'].update({
             'recv_bytes': stats.recv_bytes,
-            'total_bytes': stats.total_bytes,
             'sent_bytes': stats.sent_bytes
         })
-
-
-class Config(BaseConfigDict):
-    about = 'cwrouter configuration file'
-    name = 'config'
-
-    DEFAULTS = {
-        'aws_secret_access_key': 'fill_in',
-        'aws_access_key_id': 'fill_in',
-        'stats_url': 'http://192.168.1.254/cgi-bin/dslstatistics.ha',
-        'last_stats': {'recv_bytes': None, 'sent_bytes': None, 'total_bytes': None},
-        'namespace': 'cwrouter',
-    }
-
-    def __init__(self, directory=DEFAULT_CONFIG_DIR):
-        super(Config, self).__init__()
-        self.update(self.DEFAULTS)
-        self.directory = directory
-        self._path = os.path.join(directory, self.name + ".json")
