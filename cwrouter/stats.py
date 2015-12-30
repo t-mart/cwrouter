@@ -1,3 +1,4 @@
+from __future__ import division
 from functools import total_ordering
 
 import requests
@@ -8,14 +9,26 @@ from cwrouter.exceptions import EmptyStatsException, DocumentParseException, Sta
 
 @total_ordering
 class Stats(dict):
-    def __init__(self, recv_bytes=None, sent_bytes=None):
-        super(Stats, self).__init__()
-        self['recv_bytes'] = self['sent_bytes'] = None
+    stats_generators = {
+        'recv_bytes': lambda rb, sb: rb,
+        'sent_bytes': lambda rb, sb: sb,
+        'total_bytes': lambda rb, sb: rb + sb,
+        'recv_sent_rate': lambda rb, sb: rb / sb
+    }
 
-        if recv_bytes is not None:
-            self['recv_bytes'] = recv_bytes
-        if sent_bytes is not None:
-            self['sent_bytes'] = sent_bytes
+    dont_compare = ('total_bytes', 'recv_sent_rate')
+
+    def __init__(self, recv_bytes, sent_bytes):
+        super(Stats, self).__init__()
+
+        self._set_stats(recv_bytes, sent_bytes)
+
+    def _set_stats(self, recv_bytes, sent_bytes):
+        for key, gen in self.stats_generators.iteritems():
+            try:
+                self[key] = gen(recv_bytes, sent_bytes)
+            except TypeError:
+                raise EmptyStatsException("Could not produce stat %s from args recv_bytes=%s, sent_bytes=%s" % (key, recv_bytes, sent_bytes))
 
     @classmethod
     def from_request(cls, stats_url):
@@ -39,50 +52,38 @@ class Stats(dict):
                         in ([tr.find("th").string, tr.find("td").string]
                             for tr
                             in table.find_all("tr"))}
-                try:
-                    return cls(int(rows['Receive Bytes']), int(rows['Transmit Bytes']))
-                except KeyError:
-                    DocumentParseException("could not build stats object from document")
+                return cls(int(rows['Receive Bytes']), int(rows['Transmit Bytes']))
         raise DocumentParseException("could not build stats object from document")
 
-    @property
-    def recv_bytes(self):
-        return self['recv_bytes']
+    def __getattr__(self, name):
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError("'%s' object has no attribute %s" % (self.__class__.__name__, name))
 
-    @property
-    def sent_bytes(self):
-        return self['sent_bytes']
-
-    @property
-    def total_bytes(self):
-        return self['recv_bytes'] + self['sent_bytes']
-
-    def is_empty(self):
-        return self.recv_bytes is None or self.sent_bytes is None
-
-    def metrics(self):
-        return list(self.items()) + [('total_bytes', self.total_bytes)]
+    def iter_stats(self):
+        for k, v in self.items():
+            yield k, v
 
     def __eq__(self, other):
-        return self['recv_bytes'] == other.recv_bytes and self['sent_bytes'] == other.sent_bytes
-
-    def __lt__(self, other):
-        if self['recv_bytes'] >= other.recv_bytes:
+        try:
+            for k, v in ((k, v) for k, v in self.iter_stats() if k not in self.dont_compare):
+                if other[k] != v:
+                    return False
+        except KeyError:
             return False
-        if self['sent_bytes'] >= other.sent_bytes:
+        except TypeError:
             return False
         return True
 
-    @classmethod
-    def last_read(cls, config):
-            return cls(recv_bytes=config.get('recv_bytes'),
-                       sent_bytes=config.get('sent_bytes'))
+    def __lt__(self, other):
+        for k, v in ((k, v) for k, v in self.iter_stats() if k not in self.dont_compare):
+            if v >= other[k]:
+                return False
+        return True
 
     @classmethod
     def delta(cls, first, second):
-        if first.is_empty() or second.is_empty():
-            raise EmptyStatsException("A delta point is empty")
-
         if first < second:
             return cls(recv_bytes=second.recv_bytes - first.recv_bytes,
                        sent_bytes=second.sent_bytes - first.sent_bytes)

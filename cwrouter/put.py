@@ -15,7 +15,7 @@ class PutMetrics:
 
     def put(self, namespace, stats):
         try:
-            for name, value in stats.metrics():
+            for name, value in stats.iter_stats():
                 self.cw.put_metric_data(namespace, name, value=value, unit="Bytes")
         except BotoServerError:
             raise PutException("there was a server error putting metrics to cloudwatch")

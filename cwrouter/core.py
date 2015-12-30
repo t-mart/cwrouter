@@ -7,7 +7,7 @@ import os.path
 from cwrouter.config import Config, DEFAULT_CONFIG_DIR, ensure_config_dir_exists
 from cwrouter.stats import Stats
 from cwrouter.put import PutMetrics
-from cwrouter.exceptions import PutException, StatsLookupException, DocumentParseException
+from cwrouter.exceptions import PutException, StatsLookupException, DocumentParseException, EmptyStatsException
 
 
 class ExitStatus:
@@ -45,7 +45,11 @@ def main(config=Config(), logger=setup_logger()):
 
     config.load()
     stat_url = config['stats_url']
-    last_stats = config.last_stats()
+
+    try:
+        last_stats = config.last_stats()
+    except EmptyStatsException:
+        last_stats = Stats(recv_bytes=0, sent_bytes=0)
 
     try:
         new_stats = Stats.from_request(stats_url=stat_url)
@@ -56,10 +60,7 @@ def main(config=Config(), logger=setup_logger()):
         logger.error(e)
         return ExitStatus.ERROR
 
-    if last_stats.is_empty():
-        delta = Stats(recv_bytes=0, sent_bytes=0)
-    else:
-        delta = Stats.delta(last_stats, new_stats)
+    delta = Stats.delta(last_stats, new_stats)
 
     try:
         pm = PutMetrics.build_from_creds(config['aws_access_key_id'], config['aws_secret_access_key'])

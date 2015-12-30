@@ -71,10 +71,24 @@ class TestStats:
 
     def test_comparison(self):
         assert stats_early < stats_later
+        assert not stats_early >= stats_later  # verify total_ordering
+        assert not stats_early == stats_later
+        assert stats_early == stats_early
+        assert not stats_early == 1
+        assert not stats_early == {'stats_obj_superclass': 123}
 
     def test_total_bytes(self):
         stats = Stats(recv_bytes=1, sent_bytes=3)
         assert stats.total_bytes == 4
+
+    def test_recv_sent_rate(self):
+        stats = Stats(recv_bytes=1, sent_bytes=3)
+        assert stats.recv_sent_rate == 1.0/3
+
+    def test_getattr(self):
+        a = stats_early.sent_bytes
+        with pytest.raises(AttributeError):
+            a = stats_early.not_a_real_attr
 
 
 class TestStatsDelta:
@@ -101,13 +115,13 @@ class TestPutMetrics:
     def test_put(self, cloudwatch_connection):
         pm = PutMetrics(cloudwatch_connection)
         namespace = "foo"
-        metrics = ['recv_bytes', 'sent_bytes', 'total_bytes']
+        metrics = Stats.stats_generators.keys()
         calls = [call.put_metric_data(namespace, metric, value=ANY, unit="Bytes")
                  for metric in metrics]
 
         pm.put(namespace, stats_early)
 
-        assert cloudwatch_connection.put_metric_data.call_count == 3
+        assert cloudwatch_connection.put_metric_data.call_count == len(metrics)
         cloudwatch_connection.assert_has_calls(calls, any_order=True)
 
 
