@@ -5,11 +5,12 @@ cwrouter: uploading my network usage to AWS CloudWatch
 cwrouter relays network usage statistics from my home router to `Amazon
 CloudWatch <https://aws.amazon.com/cloudwatch/>`_.
 
-According to a scheduled system job (e.g. cron), every 5 minutes, cwrouter
-checks my routers administrator web page and scrapes statistics from it. From
-CloudWatch, I can monitor, analyze and alarm on my usage of my service
-provider's plan (200GB combined upload and download per month). This allows
-me to avoid fees I might be charged if I were to exceed this allotment.
+Run via a scheduled job (e.g. cron), every 5 minutes, cwrouter
+checks my routers administrator web page, scrapes statistics from it, and
+uploads them to CloudWatch with boto. From CloudWatch, I can monitor,
+analyze and alarm on my usage of my service provider's plan (200GB
+combined upload and download per month). This allows me to avoid
+fees I might be charged if I were to exceed this allotment.
 
 .. image:: http://i.imgur.com/PuWuG5Y.png
     :alt: cwrouter statistics viewed on the CloudWatch web console
