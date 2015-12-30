@@ -33,10 +33,12 @@ setup(
         name='cwrouter',
         version=cwrouter.__version__,
         packages=['cwrouter'],
-        url='http://timmart.in/',
+        url='https://github.com/t-mart/cwrouter',
+        license=cwrouter.__license__,
+        description="cwrouter relays network usage statistics from my home "
+                    "router to AWS CloudWatch",
         author=cwrouter.__author__,
         author_email='tim@timmart.in',
-        description='upload metrics to cloudwatch',
         entry_points={
             'console_scripts': [
                 'cwrouter = cwrouter.__main__:main'
